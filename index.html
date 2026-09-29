@@ -1,1 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Earn with MK - Admin Panel</title>
 
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      color: #222;
+    }
+
+    .header {
+      background: #111827;
+      color: white;
+      padding: 18px;
+      text-align: center;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      color: #666;
+    }
+
+    .card .number {
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .section {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .section h2 {
+      margin-top: 0;
+      font-size: 20px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 700px;
+    }
+
+    th,
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+    }
+
+    th {
+      background: #f8fafc;
+    }
+
+    .status {
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .approved {
+      background: #d1e7dd;
+      color: #0f5132;
+    }
+
+    .rejected {
+      background: #f8d7da;
+      color: #842029;
+    }
+
+    button {
+      border: 0;
+      padding: 8px 12px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-right: 5px;
+    }
+
+    .approve {
+      background: #198754;
+      color: white;
+    }
+
+    .reject {
+      background: #dc3545;
+      color: white;
+    }
+
+    .refresh {
+      background: #2563eb;
+      color: white;
+      padding: 10px 16px;
+      margin-bottom: 15px;
+    }
+
+    #message {
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      display: none;
+    }
+
+    @media (max-width: 700px) {
+      .cards {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="header">
+    <h1>💰 Earn with MK — Admin Panel</h1>
+  </div>
+
+  <div class="container">
+
+    <button class="refresh" onclick="loadDashboard()">
+      🔄 Refresh
+    </button>
+
+    <div id="message"></div>
+
+    <div class="cards">
+
+      <div class="card">
+        <h3>Total Users</h3>
+        <div class="number" id="totalUsers">0</div>
+      </div>
+
+      <div class="card">
+        <h3>Total Balance</h3>
+        <div class="number" id="totalBalance">৳0.00</div>
+      </div>
+
+      <div class="card">
+        <h3>Pending Withdrawals</h3>
+        <div class="number" id="pendingWithdrawals">0</div>
+      </div>
+
+    </div>
+
+    <div class="section">
+
+      <h2>👥 Users</h2>
+
+      <div class="table-wrap">
+
+        <table>
+
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Telegram ID</th>
+              <th>Username</th>
+              <th>Name</th>
+              <th>Balance</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+
+          <tbody id="usersTable">
+            <tr>
+              <td colspan="6">Loading...</td>
+            </tr>
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+    <div class="section">
+
+      <h2>💸 Withdrawal Requests</h2>
+
+      <div class="table-wrap">
+
+        <table>
+
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Telegram ID</th>
+              <th>Amount</th>
+              <th>Method</th>
+              <th>Account</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+
+          <tbody id="withdrawalsTable">
+            <tr>
+              <td colspan="8">Loading...</td>
+            </tr>
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+  </div>
+
+<script>
+
+  const SUPABASE_URL =
+    "https://fbfusyubrqhfipqbjwus.supabase.co";
+
+  const SUPABASE_KEY =
+    "sb_publishable_sXRqHsyqoIoAspEKGLiUHQ_9UgtKDNT";
+
+
+  async function supabaseRequest(path, options = {}) {
+
+    const response = await fetch(
+      SUPABASE_URL + "/rest/v1/" + path,
+      {
+        ...options,
+
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": "Bearer " + SUPABASE_KEY,
+          "Content-Type": "application/json",
+          ...(options.headers || {})
+        }
+      }
+    );
+
+    if (!response.ok) {
+
+      const errorText =
+        await response.text();
+
+      throw new Error(errorText);
+    }
+
+    return response.json();
+  }
+
+
+  function showMessage(text, success = true) {
+
+    const message =
+      document.getElementById("message");
+
+    message.style.display = "block";
+
+    message.style.background =
+      success ? "#d1e7dd" : "#f8d7da";
+
+    message.style.color =
+      success ? "#0f5132" : "#842029";
+
+    message.textContent = text;
+
+    setTimeout(() => {
+      message.style.display = "none";
+    }, 3000);
+  }
+
+
+  async function loadDashboard() {
+
+    try {
+
+      const users =
+        await supabaseRequest(
+          "users?select=*&order=created_at.desc"
+        );
+
+      const withdrawals =
+        await supabaseRequest(
+          "withdrawals?select=*&order=created_at.desc"
+        );
+
+
+      document.getElementById("totalUsers")
+        .textContent = users.length;
+
+
+      const totalBalance =
+        users.reduce(
+          (sum, user) =>
+            sum + Number(user.balance || 0),
+          0
+        );
+
+
+      document.getElementById("totalBalance")
+        .textContent =
+        "৳" + totalBalance.toFixed(2);
+
+
+      const pending =
+        withdrawals.filter(
+          w => w.status === "pending"
+        ).length;
+
+
+      document.getElementById("pendingWithdrawals")
+        .textContent = pending;
+
+
+      renderUsers(users);
+
+      renderWithdrawals(withdrawals);
+
+    } catch (error) {
+
+      console.error(error);
+
+      showMessage(
+        "Error loading data: " +
+        error.message,
+        false
+      );
+    }
+
+  }
+
+
+  function renderUsers(users) {
+
+    const table =
+      document.getElementById("usersTable");
+
+    if (!users.length) {
+
+      table.innerHTML =
+        `<tr>
+          <td colspan="6">
+            No users found
+          </td>
+        </tr>`;
+
+      return;
+    }
+
+
+    table.innerHTML =
+      users.map(user => `
+
+        <tr>
+
+          <td>${user.id}</td>
+
+          <td>${user.telegram_id}</td>
+
+          <td>
+            ${user.username
+              ? "@" + user.username
+              : "-"
+            }
+          </td>
+
+          <td>
+            ${user.first_name || "-"}
+          </td>
+
+          <td>
+            ৳${Number(user.balance || 0).toFixed(2)}
+          </td>
+
+          <td>
+            ${formatDate(user.created_at)}
+          </td>
+
+        </tr>
+
+      `).join("");
+
+  }
+
+
+  function renderWithdrawals(withdrawals) {
+
+    const table =
+      document.getElementById(
+        "withdrawalsTable"
+      );
+
+
+    if (!withdrawals.length) {
+
+      table.innerHTML =
+        `<tr>
+          <td colspan="8">
+            No withdrawal requests
+          </td>
+        </tr>`;
+
+      return;
+    }
+
+
+    table.innerHTML =
+      withdrawals.map(w => `
+
+        <tr>
+
+          <td>${w.id}</td>
+
+          <td>${w.telegram_id}</td>
+
+          <td>
+            ৳${Number(w.amount).toFixed(2)}
+          </td>
+
+          <td>${w.method}</td>
+
+          <td>${w.account_number}</td>
+
+          <td>
+
+            <span class="status ${w.status}">
+
+              ${w.status}
+
+            </span>
+
+          </td>
+
+          <td>
+            ${formatDate(w.created_at)}
+          </td>
+
+          <td>
+
+            ${
+              w.status === "pending"
+
+              ? `
+
+                <button
+                  class="approve"
+                  onclick="updateWithdrawal(${w.id}, 'approved')">
+
+                  Approve
+
+                </button>
+
+                <button
+                  class="reject"
+                  onclick="updateWithdrawal(${w.id}, 'rejected')">
+
+                  Reject
+
+                </button>
+
+              `
+
+              : "-"
+
+            }
+
+          </td>
+
+        </tr>
+
+      `).join("");
+
+  }
+
+
+  async function updateWithdrawal(
+    id,
+    status
+  ) {
+
+    const confirmText =
+      status === "approved"
+        ? "Approve this withdrawal?"
+        : "Reject this withdrawal?";
+
+
+    if (!confirm(confirmText)) {
+      return;
+    }
+
+
+    try {
+
+      await supabaseRequest(
+        "withdrawals?id=eq." + id,
+        {
+          method: "PATCH",
+
+          body: JSON.stringify({
+            status: status
+          }),
+
+          headers: {
+            "Prefer": "return=minimal"
+          }
+        }
+      );
+
+
+      showMessage(
+        "Withdrawal status updated."
+      );
+
+
+      loadDashboard();
+
+    } catch (error) {
+
+      console.error(error);
+
+      showMessage(
+        "Update failed: " +
+        error.message,
+        false
+      );
+
+    }
+
+  }
+
+
+  function formatDate(dateString) {
+
+    if (!dateString) {
+      return "-";
+    }
+
+    return new Date(dateString)
+      .toLocaleString();
+
+  }
+
+
+  loadDashboard();
+
+</script>
+
+</body>
+          </html>
